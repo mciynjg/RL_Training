@@ -1,0 +1,290 @@
+/* Global Variables & Reset */
+:root {
+    /* Colors - Light Mode */
+    --bg-primary: #FFFFFF;
+    --bg-secondary: #F5F7FA;
+    --text-main: #1D1D1F;
+    --text-sub: #86868B;
+    --accent-color: #007AFF; /* Apple Blue */
+    --accent-hover: #0062CC;
+    --accent-gradient: linear-gradient(180deg, #007AFF 0%, #0062CC 100%);
+    --card-bg: rgba(255, 255, 255, 0.85);
+    --border-color: rgba(0, 0, 0, 0.08);
+    
+    /* Button Colors */
+    --btn-bg: #FFFFFF;
+    --btn-bg-hover: #F5F5F7;
+    --btn-border: rgba(0, 0, 0, 0.1);
+    --btn-text: #1D1D1F;
+    
+    /* Effects */
+    --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.04);
+    --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-active: 0 2px 4px rgba(0, 0, 0, 0.04);
+    --glass-blur: blur(20px);
+    --transition: all 0.2s cubic-bezier(0.645, 0.045, 0.355, 1); /* Apple-like ease */
+    --radius-lg: 16px;
+    --radius-md: 10px; /* Slightly smaller for buttons */
+    --radius-sm: 8px;
+    
+    /* Typography */
+    --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Helvetica Neue", sans-serif;
+    
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    margin-top: 0px !important;
+    padding-top: 0px !important;
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+}
+
+/* Base Styles */
+.stApp {
+    background: var(--bg-primary) !important;
+    font-family: var(--font-family) !important;
+    color: var(--text-main);
+}
+
+h1, h2, h3, h4, h5, h6, p, div, span, button, input, label {
+    font-family: var(--font-family) !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography Hierarchy */
+h1 {
+    font-weight: 700 !important;
+    font-size: 34px !important;
+    letter-spacing: -0.022em !important;
+    color: var(--text-main) !important;
+    line-height: 1.2 !important;
+    margin-bottom: var(--spacing-lg) !important;
+}
+
+h2 {
+    font-weight: 600 !important;
+    font-size: 24px !important;
+    letter-spacing: -0.019em !important;
+    color: var(--text-main) !important;
+    line-height: 1.3 !important;
+    margin-bottom: var(--spacing-md) !important;
+}
+
+h3 {
+    font-weight: 600 !important;
+    font-size: 20px !important;
+    letter-spacing: -0.017em !important;
+    color: var(--text-main) !important;
+    line-height: 1.4 !important;
+    margin-bottom: var(--spacing-sm) !important;
+}
+
+p {
+    color: var(--text-sub) !important;
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+    letter-spacing: -0.011em !important;
+    margin-bottom: var(--spacing-md) !important;
+}
+
+label {
+    color: var(--text-sub) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.01em !important;
+    margin-bottom: var(--spacing-xs) !important;
+}
+
+/* Hide Streamlit Header */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+
+.stApp {
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    backdrop-filter: var(--glass-blur);
+}
+
+/* Cards (Custom containers) */
+.apple-card {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-soft);
+    padding: var(--spacing-lg);
+    backdrop-filter: var(--glass-blur);
+    transition: var(--transition);
+    margin-bottom: var(--spacing-md);
+}
+
+.apple-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+    border-color: rgba(0, 122, 255, 0.2);
+}
+
+/* 
+   ==========================================================================
+   COMPONENTS
+   ==========================================================================
+*/
+
+/* Buttons */
+.stButton > button,
+.stDownloadButton > button,
+.stFormSubmitButton > button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background-color: var(--btn-bg) !important;
+    color: var(--btn-text) !important;
+    border: 1px solid var(--btn-border) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 0.6rem 1.2rem !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.01em !important;
+    line-height: 1.2 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    transition: var(--transition) !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    min-height: 40px !important;
+}
+
+/* Hover State */
+.stButton > button:hover,
+.stDownloadButton > button:hover,
+.stFormSubmitButton > button:hover {
+    background-color: var(--btn-bg-hover) !important;
+    border-color: rgba(0, 0, 0, 0.15) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+    color: var(--accent-color) !important;
+}
+
+/* Active/Pressed State */
+.stButton > button:active,
+.stDownloadButton > button:active,
+.stFormSubmitButton > button:active {
+    transform: scale(0.97) translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    filter: brightness(0.95);
+}
+
+/* Focus State (Accessibility) */
+.stButton > button:focus-visible,
+.stDownloadButton > button:focus-visible,
+.stFormSubmitButton > button:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.4) !important;
+    border-color: var(--accent-color) !important;
+}
+
+/* Disabled State */
+.stButton > button:disabled,
+.stDownloadButton > button:disabled,
+.stFormSubmitButton > button:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+    background-color: var(--btn-bg) !important;
+    color: var(--text-sub) !important;
+}
+
+/* Primary Button Override */
+button[kind="primary"] {
+    background: var(--accent-color) !important;
+    background-image: var(--accent-gradient) !important;
+    color: #FFFFFF !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 2px 4px rgba(0, 122, 255, 0.3) !important;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1) !important;
+}
+
+button[kind="primary"]:hover {
+    background: var(--accent-hover) !important;
+    box-shadow: 0 6px 16px rgba(0, 122, 255, 0.4) !important;
+    border-color: rgba(0, 0, 0, 0.2) !important;
+    color: #FFFFFF !important;
+}
+
+button[kind="primary"]:active {
+    box-shadow: 0 2px 4px rgba(0, 122, 255, 0.3) !important;
+    filter: brightness(0.9);
+}
+
+/* Inputs */
+.stTextInput > div > div > input,
+.stNumberInput > div > div > input,
+.stSelectbox > div > div > div {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-md) !important;
+    color: var(--text-main) !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+    transition: var(--transition);
+    height: 40px !important;
+    font-size: 15px !important;
+}
+
+.stTextInput > div > div > input:focus,
+.stNumberInput > div > div > input:focus,
+.stSelectbox > div > div > div:focus-within {
+    border-color: var(--accent-color) !important;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2) !important;
+    background-color: var(--bg-primary) !important;
+}
+
+/* Metrics */
+div[data-testid="stMetricValue"] {
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    color: var(--text-main) !important;
+    letter-spacing: -0.02em !important;
+}
+
+div[data-testid="stMetricLabel"] {
+    font-size: 13px !important;
+    color: var(--text-sub) !important;
+    font-weight: 500 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 768px) {
+    h1 { font-size: 28px !important; }
+    .apple-card { padding: var(--spacing-md); margin-bottom: var(--spacing-sm); }
+    
+    /* Larger touch targets on mobile */
+    .stButton > button {
+        padding: 0.8rem 1.5rem !important;
+        min-height: 48px !important;
+        font-size: 16px !important;
+    }
+}
+
+/* Utility Classes */
+.text-gradient {
+    background: linear-gradient(90deg, #007AFF, #5856D6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.glass-morphism {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}

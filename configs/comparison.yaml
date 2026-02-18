@@ -1,0 +1,33 @@
+# Algorithm Comparison Configuration
+# Usage: python -m src.main compare --env HalfCheetah-v4 --algos sac td3 --epochs 100
+
+env:
+  name: "HalfCheetah-v4"
+  train_num: 1
+  test_num: 1
+  normalize_obs: false
+  normalize_reward: true
+
+network:
+  hidden_sizes: [256, 256]
+  activation: "relu"
+
+# Default algorithm settings (can be overridden per-algorithm)
+algorithm:
+  name: "sac"
+  gamma: 0.99
+  lr: 0.0003
+
+training:
+  epoch: 100
+  step_per_epoch: 10000
+  batch_size: 256
+  buffer_size: 1000000
+
+device:
+  device: "auto"
+
+seed: 42
+log_dir: "./log"
+checkpoint_dir: "./checkpoints"
+comparison_output_dir: "./comparison_results"

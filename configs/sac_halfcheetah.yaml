@@ -1,0 +1,45 @@
+# SAC Configuration for HalfCheetah (Continuous Control)
+# Usage: python -m src.main train --config configs/sac_halfcheetah.yaml
+# Requires: pip install mujoco gymnasium[mujoco]
+
+env:
+  name: "HalfCheetah-v4"
+  train_num: 1
+  test_num: 1
+  normalize_obs: false
+  normalize_reward: true
+
+network:
+  hidden_sizes: [256, 256]
+  activation: "relu"
+
+algorithm:
+  name: "sac"
+  gamma: 0.99
+  sac_alpha: 0.2
+  sac_alpha_lr: 0.0003
+  sac_policy_lr: 0.0003
+  sac_qf_lr: 0.0003
+  sac_tau: 0.005
+  sac_automatic_alpha_tuning: true
+
+training:
+  epoch: 100
+  step_per_epoch: 15000
+  step_per_collect: 10000
+  update_per_step: 1.0
+  episode_per_test: 10
+  batch_size: 256
+  buffer_size: 1000000
+  warmup_steps: 5000
+  save_freq: 10
+
+device:
+  device: "auto"
+  num_threads: 4
+
+seed: 42
+log_dir: "./log"
+checkpoint_dir: "./checkpoints"
+use_tensorboard: true
+verbose: true

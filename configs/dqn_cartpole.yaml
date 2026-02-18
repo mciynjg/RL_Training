@@ -1,0 +1,43 @@
+# DQN Configuration for CartPole
+# Usage: python -m src.main train --config configs/dqn_cartpole.yaml
+
+env:
+  name: "CartPole-v1"
+  train_num: 10
+  test_num: 100
+  normalize_obs: false
+  normalize_reward: false
+
+network:
+  hidden_sizes: [128, 128]
+  activation: "relu"
+
+algorithm:
+  name: "dqn"
+  gamma: 0.99
+  lr: 0.001
+  n_step: 3
+  target_update_freq: 320
+  eps_train: 0.1
+  eps_test: 0.05
+  is_double: true
+
+training:
+  epoch: 100
+  step_per_epoch: 10000
+  step_per_collect: 100
+  update_per_step: 1.0
+  episode_per_test: 100
+  batch_size: 64
+  buffer_size: 10000
+  save_freq: 10
+
+device:
+  device: "auto"
+  num_threads: 4
+
+seed: 42
+log_dir: "./log"
+checkpoint_dir: "./checkpoints"
+use_tensorboard: true
+verbose: true
