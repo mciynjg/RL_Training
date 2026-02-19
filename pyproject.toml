@@ -7,7 +7,7 @@ name = "rl-training"
 version = "1.0.0"
 description = "Reinforcement Learning Training Framework with Tianshou"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
     {name = "Your Name", email = "your.email@example.com"}
@@ -17,14 +17,12 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 dependencies = [
-    "tianshou>=0.5.0",
+    "tianshou>=1.0.0",
     "gymnasium>=0.29.0",
     "torch>=2.0.0",
     "numpy>=1.21.0",

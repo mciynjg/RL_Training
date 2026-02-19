@@ -132,6 +132,20 @@ class DQNTrainer(BaseTrainer):
         trainer = OffPolicyTrainer(algorithm=self.algorithm, params=params)
 
         logger.info("Starting training...")
+        
+        # Monkey patch collector to handle negative time
+        # This is a workaround for a potential bug in Tianshou or system clock issues
+        original_set_collect_time = self.train_collector.collect_stats.set_collect_time
+        
+        def safe_set_collect_time(collect_time, **kwargs):
+            if collect_time < 0:
+                logger.warning(f"Negative collect time detected: {collect_time}, setting to 0")
+                collect_time = 0.0
+            return original_set_collect_time(collect_time, **kwargs)
+            
+        self.train_collector.collect_stats.set_collect_time = safe_set_collect_time
+        self.test_collector.collect_stats.set_collect_time = safe_set_collect_time
+
         result = trainer.run()
 
         best_reward = getattr(result, 'best_reward', 'N/A')
@@ -142,6 +156,9 @@ class DQNTrainer(BaseTrainer):
         logger.info(f"Best test reward: {best_reward}")
         logger.info(f"Total training time: {total_time:.2f}s")
 
+        # Tianshou 2.0+ workaround for negative collect time issue
+        # The collector time might be negative due to system time precision or clock synchronization
+        # We catch the ValueError that might be raised by set_collect_time
         return TrainResult(
             best_reward=float(best_reward) if isinstance(best_reward, (int, float)) else 0,
             final_reward=best_reward,

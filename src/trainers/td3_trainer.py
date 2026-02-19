@@ -172,6 +172,19 @@ class TD3Trainer(BaseTrainer):
         trainer = OffPolicyTrainer(algorithm=self.algorithm, params=params)
 
         logger.info("Starting training...")
+        
+        # Monkey patch collector to handle negative time
+        original_set_collect_time = self.train_collector.collect_stats.set_collect_time
+        
+        def safe_set_collect_time(collect_time, **kwargs):
+            if collect_time < 0:
+                logger.warning(f"Negative collect time detected: {collect_time}, setting to 0")
+                collect_time = 0.0
+            return original_set_collect_time(collect_time, **kwargs)
+            
+        self.train_collector.collect_stats.set_collect_time = safe_set_collect_time
+        self.test_collector.collect_stats.set_collect_time = safe_set_collect_time
+        
         result = trainer.run()
 
         best_reward = getattr(result, 'best_reward', 'N/A')
@@ -249,6 +262,9 @@ class TD3Trainer(BaseTrainer):
             total_rewards.append(episode_reward)
             logger.info(f"Episode {episode + 1}: reward = {episode_reward}")
 
+            if truncated:
+                logger.info(f"Episode {episode + 1} truncated at step {env._elapsed_steps if hasattr(env, '_elapsed_steps') else 'unknown'} (likely max_episode_steps reached)")
+            
         env.close()
 
         avg_reward = float(torch.tensor(total_rewards).mean())

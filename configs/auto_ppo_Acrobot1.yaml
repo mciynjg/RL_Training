@@ -1,0 +1,35 @@
+# Auto-generated configuration
+env:
+  name: "Acrobot-v1"
+  train_num: 10
+  test_num: 100
+
+network:
+  hidden_sizes: [256, 256]
+  activation: "relu"
+
+algorithm:
+  name: "ppo"
+  gamma: 0.99
+  lr: 0.0003
+  ppo_clip_ratio: 0.2
+  ppo_value_coef: 0.5
+  ppo_ent_coef: 0.01
+  ppo_max_grad_norm: 0.5
+  ppo_gae_lambda: 0.95
+  ppo_repeat_per_collect: 2
+
+
+training:
+  epoch: 100
+  step_per_epoch: 10000
+  step_per_collect: 2000
+  episode_per_test: 100
+  batch_size: 64
+
+device:
+  device: "auto"
+
+seed: 42
+log_dir: "./log"
+checkpoint_dir: "./checkpoints"

@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  rl-training:
+    # 默认使用 GPU 版本。如需 CPU 版本（节省空间），请修改为：
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile.cpu
+    build: .
+    container_name: rl-training-ui
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./log:/app/log
+      - ./checkpoints:/app/checkpoints
+      - ./configs:/app/configs
+      # Development mode: mount source code for live reload
+      - ./src:/app/src
+      - ./app.py:/app/app.py
+    # Uncomment the following section to enable GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility

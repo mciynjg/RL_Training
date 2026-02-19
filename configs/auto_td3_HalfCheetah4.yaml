@@ -1,0 +1,35 @@
+# Auto-generated configuration
+env:
+  name: "HalfCheetah-v4"
+  train_num: 10
+  test_num: 100
+
+network:
+  hidden_sizes: [256, 256]
+  activation: "relu"
+
+algorithm:
+  name: "td3"
+  gamma: 0.99
+  lr: 0.0003
+  td3_actor_lr: 0.0003
+  td3_critic_lr: 0.0003
+  td3_tau: 0.005
+  td3_policy_noise: 0.2
+  td3_noise_clip: 0.5
+  td3_policy_freq: 2
+
+
+training:
+  epoch: 10
+  step_per_epoch: 10000
+  step_per_collect: 2000
+  episode_per_test: 100
+  batch_size: 64
+
+device:
+  device: "auto"
+
+seed: 42
+log_dir: "./log"
+checkpoint_dir: "./checkpoints"

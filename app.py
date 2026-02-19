@@ -355,8 +355,8 @@ checkpoint_dir: "./checkpoints"
             
             # Regex patterns
             # Pattern for progress bar: "Epoch #1: 100%|...| ... rew=10.00, len=200.00, loss=0.123 ..."
-            # Note: Tianshou format might vary slightly
-            pat_progress = re.compile(r"Epoch #(\d+): .*?rew=([-\d\.]+).*?len=([-\d\.]+).*?loss=([-\d\.]+)")
+            # Note: Tianshou format might vary slightly (e.g. PPO might not show loss in progress bar)
+            pat_progress = re.compile(r"Epoch #(\d+): .*?rew=([-\d\.]+)(?:.*?len=([-\d\.]+))?(?:.*?loss=([-\d\.]+))?")
             
             # Pattern for test results: "Epoch #1: test_reward: 123.45 ± 10.00, best_reward: ..."
             pat_test = re.compile(r"Epoch #(\d+): test_reward: ([-\d\.]+).*?best_reward: ([-\d\.]+)")
@@ -407,8 +407,8 @@ checkpoint_dir: "./checkpoints"
                 if prog_match:
                     epoch = int(prog_match.group(1))
                     rew = float(prog_match.group(2))
-                    length = float(prog_match.group(3))
-                    loss = float(prog_match.group(4))
+                    length = float(prog_match.group(3)) if prog_match.group(3) else 0.0
+                    loss = float(prog_match.group(4)) if prog_match.group(4) else 0.0
                     
                     # Update progress bar
                     progress = min(epoch / epochs, 1.0)
@@ -628,13 +628,24 @@ elif page == "Visualize":
 
         # Display log table
         if filtered_logs:
-            st.markdown("#### Training Runs")
+        st.markdown("#### Training Runs")
 
-            for info in filtered_logs:
-                with st.expander(f"📊 {info['algo'].upper()} / {info['env']} ({info['time']})"):
+        # Create a clean layout for log entries
+        for info in filtered_logs:
+            # Use columns to align the expander and icon better if needed, 
+            # but standard st.expander usually handles this well.
+            # If icons are overlapping text, it might be a Streamlit rendering issue with emojis.
+            # We'll simplify the label to be safe.
+            
+            label = f"{info['algo'].upper()} | {info['env']} | {info['time']}"
+            with st.expander(label):
+                col1, col2 = st.columns(2)
+                with col1:
                     st.write(f"**Directory**: `{info['path']}`")
                     st.write(f"**Algorithm**: {info['algo'].upper()}")
+                with col2:
                     st.write(f"**Environment**: {info['env']}")
+                    st.write(f"**Date**: {info['time']}")
 
                     # Show if there's a plot for this run
                     plot_files = glob.glob(f"plots/*{info['name']}*.png")
