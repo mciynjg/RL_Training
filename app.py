@@ -628,24 +628,23 @@ elif page == "Visualize":
 
         # Display log table
         if filtered_logs:
-        st.markdown("#### Training Runs")
+            st.markdown("#### Training Runs")
 
-        # Create a clean layout for log entries
-        for info in filtered_logs:
-            # Use columns to align the expander and icon better if needed, 
-            # but standard st.expander usually handles this well.
-            # If icons are overlapping text, it might be a Streamlit rendering issue with emojis.
-            # We'll simplify the label to be safe.
-            
-            label = f"{info['algo'].upper()} | {info['env']} | {info['time']}"
-            with st.expander(label):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**Directory**: `{info['path']}`")
-                    st.write(f"**Algorithm**: {info['algo'].upper()}")
-                with col2:
-                    st.write(f"**Environment**: {info['env']}")
-                    st.write(f"**Date**: {info['time']}")
+            # Create a clean layout for log entries
+            for info in filtered_logs:
+                # Use columns to align the expander and icon better if needed,
+                # but standard st.expander usually handles this well.
+                # If icons are overlapping text, it might be a Streamlit rendering issue with emojis.
+                # We'll simplify the label to be safe.
+                label = f"{info['algo'].upper()} | {info['env']} | {info['time']}"
+                with st.expander(label):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**Directory**: `{info['path']}`")
+                        st.write(f"**Algorithm**: {info['algo'].upper()}")
+                    with col2:
+                        st.write(f"**Environment**: {info['env']}")
+                        st.write(f"**Date**: {info['time']}")
 
                     # Show if there's a plot for this run
                     plot_files = glob.glob(f"plots/*{info['name']}*.png")

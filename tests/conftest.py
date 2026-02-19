@@ -36,8 +36,8 @@ def pendulum_env():
     env.close()
 
 
-@pytest.fixture
-def device():
+@pytest.fixture(scope="session")
+def torch_device():
     """Get available device"""
     if torch.cuda.is_available():
         return torch.device("cuda")

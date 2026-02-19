@@ -174,16 +174,18 @@ class TD3Trainer(BaseTrainer):
         logger.info("Starting training...")
         
         # Monkey patch collector to handle negative time
-        original_set_collect_time = self.train_collector.collect_stats.set_collect_time
-        
-        def safe_set_collect_time(collect_time, **kwargs):
-            if collect_time < 0:
-                logger.warning(f"Negative collect time detected: {collect_time}, setting to 0")
-                collect_time = 0.0
-            return original_set_collect_time(collect_time, **kwargs)
+        if hasattr(self.train_collector, "collect_stats") and hasattr(self.train_collector.collect_stats, "set_collect_time"):
+            original_set_collect_time = self.train_collector.collect_stats.set_collect_time
             
-        self.train_collector.collect_stats.set_collect_time = safe_set_collect_time
-        self.test_collector.collect_stats.set_collect_time = safe_set_collect_time
+            def safe_set_collect_time(collect_time, **kwargs):
+                if collect_time < 0:
+                    logger.warning(f"Negative collect time detected: {collect_time}, setting to 0")
+                    collect_time = 0.0
+                return original_set_collect_time(collect_time, **kwargs)
+                
+            self.train_collector.collect_stats.set_collect_time = safe_set_collect_time
+            if hasattr(self.test_collector, "collect_stats") and hasattr(self.test_collector.collect_stats, "set_collect_time"):
+                self.test_collector.collect_stats.set_collect_time = safe_set_collect_time
         
         result = trainer.run()
 

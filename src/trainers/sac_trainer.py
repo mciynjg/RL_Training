@@ -10,9 +10,9 @@ from typing import Optional, Dict, Any
 from tianshou.data import Collector, VectorReplayBuffer
 from tianshou.trainer import OffPolicyTrainer, OffPolicyTrainerParams
 from tianshou.utils import TensorboardLogger
+from tianshou.algorithm.modelfree.sac import SACPolicy, AutoAlpha
 from tianshou.utils.net.common import Net
 from tianshou.utils.net.continuous import ContinuousActorProbabilistic, ContinuousCritic
-from tianshou.algorithm.modelfree.sac import SACPolicy, SAC, AutoAlpha
 from tianshou.algorithm.optim import AdamOptimizerFactory
 
 from src.trainers.base import BaseTrainer, TrainResult
@@ -44,7 +44,7 @@ class SACTrainer(BaseTrainer):
             env = self.train_envs[0]
         return env, env.observation_space.shape, env.action_space.shape
 
-    def create_policy(self) -> SAC:
+    def create_policy(self) -> SACPolicy:
         """Create SAC using tianshou 2.0 official APIs"""
         env, state_shape, action_shape = self._get_env_info()
 
@@ -92,29 +92,23 @@ class SACTrainer(BaseTrainer):
             hidden_sizes=self.config.network.hidden_sizes,
         ).to(self.config.device.device)
 
+        if self.config.algorithm.sac_automatic_alpha_tuning:
+            target_entropy = self.config.algorithm.sac_target_entropy
+            if target_entropy is None:
+                target_entropy = -float(np.prod(action_shape))
+            log_alpha = torch.zeros(1, device=self.config.device.device, requires_grad=True)
+            alpha = AutoAlpha(
+                target_entropy=target_entropy,
+                log_alpha=log_alpha,
+                alpha_optim=AdamOptimizerFactory(lr=self.config.algorithm.sac_alpha_lr),
+            )
+        else:
+            alpha = self.config.algorithm.sac_alpha
+
         # Create policy
-        # Note: action_scaling=False because SACPolicy hardcodes action_bound_method=None,
-        # which causes assertion failures when exploration noise pushes actions outside [-1, 1].
-        # The actor already outputs actions in [-max_action, max_action], and we rely on
-        # the environment's action clipping for any out-of-bounds actions.
         policy = SACPolicy(
             actor=actor,
-            exploration_noise="default",  # Gaussian noise
-            deterministic_eval=True,
-            action_space=env.action_space,
-            action_scaling=False,  # Disabled to avoid assertion error with exploration noise
-        )
-
-        # Create SAC algorithm with AutoAlpha for automatic entropy tuning
-        alpha = AutoAlpha(
-            target_entropy=-action_shape[0],
-            log_alpha=float(np.log(self.config.algorithm.sac_alpha)),
-            optim=AdamOptimizerFactory(lr=self.config.algorithm.sac_alpha_lr),
-        )
-
-        algorithm = SAC(
-            policy=policy,
-            policy_optim=AdamOptimizerFactory(lr=self.config.algorithm.sac_policy_lr),
+            actor_optim=AdamOptimizerFactory(lr=self.config.algorithm.sac_policy_lr),
             critic=critic1,
             critic_optim=AdamOptimizerFactory(lr=self.config.algorithm.sac_qf_lr),
             critic2=critic2,
@@ -122,13 +116,15 @@ class SACTrainer(BaseTrainer):
             tau=self.config.algorithm.sac_tau,
             gamma=self.config.algorithm.gamma,
             alpha=alpha,
+            exploration_noise=None,  # SAC uses policy noise
             deterministic_eval=True,
+            action_space=env.action_space,
         )
 
-        return algorithm
+        return policy
 
-    def create_algorithm(self) -> SAC:
-        """Create SAC algorithm"""
+    def create_algorithm(self) -> SACPolicy:
+        """Create SAC algorithm (which is the policy in Tianshou 2.0)"""
         return self.create_policy()
 
     def create_collectors(self) -> tuple:
@@ -185,16 +181,18 @@ class SACTrainer(BaseTrainer):
         logger.info("Starting training...")
         
         # Monkey patch collector to handle negative time
-        original_set_collect_time = self.train_collector.collect_stats.set_collect_time
-        
-        def safe_set_collect_time(collect_time, **kwargs):
-            if collect_time < 0:
-                logger.warning(f"Negative collect time detected: {collect_time}, setting to 0")
-                collect_time = 0.0
-            return original_set_collect_time(collect_time, **kwargs)
+        if hasattr(self.train_collector, "collect_stats") and hasattr(self.train_collector.collect_stats, "set_collect_time"):
+            original_set_collect_time = self.train_collector.collect_stats.set_collect_time
             
-        self.train_collector.collect_stats.set_collect_time = safe_set_collect_time
-        self.test_collector.collect_stats.set_collect_time = safe_set_collect_time
+            def safe_set_collect_time(collect_time, **kwargs):
+                if collect_time < 0:
+                    logger.warning(f"Negative collect time detected: {collect_time}, setting to 0")
+                    collect_time = 0.0
+                return original_set_collect_time(collect_time, **kwargs)
+                
+            self.train_collector.collect_stats.set_collect_time = safe_set_collect_time
+            if hasattr(self.test_collector, "collect_stats") and hasattr(self.test_collector.collect_stats, "set_collect_time"):
+                self.test_collector.collect_stats.set_collect_time = safe_set_collect_time
         
         result = trainer.run()
 
