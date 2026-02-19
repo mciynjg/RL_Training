@@ -36,7 +36,7 @@ class PPOTrainer(BaseTrainer):
         super().__init__(algorithm, train_envs, test_envs, buffer, config, logger_instance)
 
     def create_policy(self) -> ProbabilisticActorPolicy:
-        """Create PPO policy for discrete actions"""
+        """Create PPO policy for both discrete and continuous actions"""
         # Get single environment from vector env
         if hasattr(self.train_envs, 'workers') and len(self.train_envs.workers) > 0:
             env = self.train_envs.workers[0].env
@@ -45,32 +45,80 @@ class PPOTrainer(BaseTrainer):
         else:
             env = self.train_envs[0]
 
-        # Actor network
-        actor_net = Net(
-            state_shape=env.observation_space.shape,
-            action_shape=env.action_space.n,
-            hidden_sizes=self.config.network.hidden_sizes,
-            softmax=True,
-        ).to(self.config.device.device)
+        is_continuous = hasattr(env.action_space, 'shape') and len(env.action_space.shape) > 0 and hasattr(env.action_space, 'high')
 
-        # Critic network - store for later use in create_algorithm
-        self.critic = DiscreteCritic(
-            preprocess_net=Net(
+        if is_continuous:
+            from tianshou.utils.net.continuous import ContinuousActorProbabilistic, ContinuousCritic
+            
+            action_shape = env.action_space.shape
+            max_action = float(env.action_space.high.max())
+            
+            # Actor network
+            actor_net = Net(
                 state_shape=env.observation_space.shape,
                 hidden_sizes=self.config.network.hidden_sizes,
-            ).to(self.config.device.device),
-            hidden_sizes=self.config.network.hidden_sizes,
-        ).to(self.config.device.device)
+                activation=torch.nn.Tanh,
+            ).to(self.config.device.device)
+            
+            actor = ContinuousActorProbabilistic(
+                preprocess_net=actor_net,
+                action_shape=action_shape,
+                max_action=max_action,
+                hidden_sizes=self.config.network.hidden_sizes,
+            ).to(self.config.device.device)
 
-        # Policy - note: critic is NOT passed here in Tianshou 2.0
-        policy = ProbabilisticActorPolicy(
-            actor=actor_net,
-            dist_fn=dist.categorical.Categorical,
-            action_space=env.action_space,
-            observation_space=env.observation_space,
-            deterministic_eval=True,
-            action_scaling=False,
-        )
+            # Critic network
+            critic_net = Net(
+                state_shape=env.observation_space.shape,
+                hidden_sizes=self.config.network.hidden_sizes,
+                activation=torch.nn.Tanh,
+            ).to(self.config.device.device)
+            
+            self.critic = ContinuousCritic(
+                preprocess_net=critic_net,
+                hidden_sizes=self.config.network.hidden_sizes,
+            ).to(self.config.device.device)
+
+        if is_continuous:
+            # Policy
+            policy = ProbabilisticActorPolicy(
+                actor=actor,
+                dist_fn=dist.Normal,
+                action_space=env.action_space,
+                deterministic_eval=True,
+                action_scaling=True,
+                action_bound_method="clip",
+            )
+            
+        else:
+            # Discrete action space
+            from tianshou.utils.net.discrete import DiscreteCritic
+            
+            # Actor network
+            actor_net = Net(
+                state_shape=env.observation_space.shape,
+                action_shape=env.action_space.n,
+                hidden_sizes=self.config.network.hidden_sizes,
+                softmax=True,
+            ).to(self.config.device.device)
+
+            # Critic network
+            self.critic = DiscreteCritic(
+                preprocess_net=Net(
+                    state_shape=env.observation_space.shape,
+                    hidden_sizes=self.config.network.hidden_sizes,
+                ).to(self.config.device.device),
+                hidden_sizes=self.config.network.hidden_sizes,
+            ).to(self.config.device.device)
+
+            # Policy
+            policy = ProbabilisticActorPolicy(
+                actor=actor_net,
+                dist_fn=dist.categorical.Categorical,
+                action_space=env.action_space,
+                deterministic_eval=True,
+                action_scaling=False,
+            )
 
         return policy
 
@@ -179,6 +227,7 @@ class PPOTrainer(BaseTrainer):
     ) -> Dict[str, float]:
         """Test trained PPO policy"""
         import gymnasium as gym
+        import numpy as np
         from tianshou.data import Batch
         from src.config import Config
 
@@ -221,10 +270,21 @@ class PPOTrainer(BaseTrainer):
             episode_reward = 0
 
             while not done:
-                batch = Batch(obs=[obs])
-                batch.info = {}
+                batch = Batch(obs=[obs], info={})
                 with torch.no_grad():
-                    action = test_algorithm.policy(batch).act[0].item()
+                    # For PPO, the policy output might be different
+                    # Tianshou's PPO policy returns a Batch with 'act'
+                    result = test_algorithm.policy(batch)
+                    if hasattr(result, 'act'):
+                         action = result.act[0].item() if not isinstance(result.act[0], (np.ndarray, list)) else result.act[0]
+                    else:
+                         action = result[0] # Fallback
+                         
+                # Handle numpy/tensor conversion if needed
+                if hasattr(action, 'detach'):
+                    action = action.detach().cpu().numpy()
+                if isinstance(action, np.ndarray) and action.ndim == 0:
+                    action = action.item()
 
                 obs, reward, terminated, truncated, _ = env.step(action)
                 done = terminated or truncated

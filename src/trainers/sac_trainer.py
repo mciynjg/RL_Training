@@ -210,6 +210,8 @@ class SACTrainer(BaseTrainer):
     ) -> Dict[str, float]:
         """Test trained SAC policy"""
         import gymnasium as gym
+        import numpy as np
+        from tianshou.data import Batch
         from src.config import Config
 
         render_mode = "human" if render else None
@@ -247,10 +249,9 @@ class SACTrainer(BaseTrainer):
             episode_reward = 0
 
             while not done:
-                obs_tensor = torch.FloatTensor(obs).unsqueeze(0).to(self.config.device.device)
-                batch = {'obs': obs_tensor}
+                batch = Batch(obs=[obs], info={})
                 with torch.no_grad():
-                    action = test_algorithm(batch).act[0].detach().cpu().numpy()
+                    action = test_algorithm.policy(batch).act[0].detach().cpu().numpy()
 
                 obs, reward, terminated, truncated, _ = env.step(action)
                 done = terminated or truncated

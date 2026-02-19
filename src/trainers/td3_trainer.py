@@ -58,13 +58,12 @@ class TD3Trainer(BaseTrainer):
         ).to(self.config.device.device)
 
         # Actor: deterministic output
-        from tianshou.utils.net.continuous import Actor
-        actor = Actor(
+        from tianshou.utils.net.continuous import ContinuousActorDeterministic
+        actor = ContinuousActorDeterministic(
             preprocess_net=actor_net,
             action_shape=action_shape,
             max_action=max_action,
             hidden_sizes=self.config.network.hidden_sizes,
-            last_linear_layer_init_zero=True,
         ).to(self.config.device.device)
 
         # Critic 1
@@ -200,6 +199,8 @@ class TD3Trainer(BaseTrainer):
     ) -> Dict[str, float]:
         """Test trained TD3 policy"""
         import gymnasium as gym
+        import numpy as np
+        from tianshou.data import Batch
         from src.config import Config
 
         render_mode = "human" if render else None
@@ -237,10 +238,9 @@ class TD3Trainer(BaseTrainer):
             episode_reward = 0
 
             while not done:
-                obs_tensor = torch.FloatTensor(obs).unsqueeze(0).to(self.config.device.device)
-                batch = {'obs': obs_tensor}
+                batch = Batch(obs=[obs], info={})
                 with torch.no_grad():
-                    action = test_algorithm(batch).act[0].detach().cpu().numpy()
+                    action = test_algorithm.policy(batch).act[0].detach().cpu().numpy()
 
                 obs, reward, terminated, truncated, _ = env.step(action)
                 done = terminated or truncated

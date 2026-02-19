@@ -15,6 +15,7 @@ except ImportError:
     HAS_TB = False
     print("Warning: tensorboard not installed. Install with: pip install tensorboard")
 
+import matplotlib
 import matplotlib.pyplot as plt
 
 
@@ -42,6 +43,7 @@ def find_log_directories(log_dir: str = "./log") -> List[str]:
 
     # Find directories with event files
     log_dirs = []
+    # Use rglob to find all event files
     for item in log_path.rglob("events.out.tfevents.*"):
         if item.parent not in [Path(p) for p in log_dirs]:
             log_dirs.append(str(item.parent))
@@ -49,7 +51,7 @@ def find_log_directories(log_dir: str = "./log") -> List[str]:
     return sorted(log_dirs)
 
 
-def extract_rewards(log_path: str) -> Dict[str, List[Any]]:
+def extract_rewards(log_path: str) -> Dict[str, Dict[str, List[Any]]]:
     """
     Extract rewards from TensorBoard log.
 
@@ -69,10 +71,14 @@ def extract_rewards(log_path: str) -> Dict[str, List[Any]]:
         data = {}
 
         # Get all scalar tags
-        scalar_tags = ea.Tags().get("scalars", [])
+        try:
+            scalar_tags = ea.Tags().get("scalars", [])
+        except Exception as e:
+            print(f"Warning: Could not get tags from {log_path}: {e}")
+            return {}
         
         if not scalar_tags:
-            print(f"Warning: No scalar tags found in {log_path}")
+            # print(f"Warning: No scalar tags found in {log_path}")
             return {}
 
         for tag in scalar_tags:
@@ -84,7 +90,7 @@ def extract_rewards(log_path: str) -> Dict[str, List[Any]]:
                     "times": [e.wall_time for e in events],
                 }
             except Exception as e:
-                print(f"Error reading tag {tag} in {log_path}: {e}")
+                # print(f"Error reading tag {tag} in {log_path}: {e}")
                 continue
 
         return data
@@ -118,7 +124,7 @@ def parse_log_name(log_path: str) -> Dict[str, str]:
         result["environment"] = "_".join(parts[1:-1]) if len(parts) > 2 else parts[1]
         if len(parts) > 2 and parts[-1].isdigit():
             result["timestamp"] = parts[-1]
-
+            
     return result
 
 
@@ -128,8 +134,7 @@ def plot_rewards(
     save_path: Optional[str] = None,
     show: bool = True,
     smooth_window: int = 10,
-    group_by_env: bool = True,
-) -> plt.Figure:
+) -> Optional[plt.Figure]:
     """
     Plot reward curves from TensorBoard logs.
 
@@ -139,10 +144,9 @@ def plot_rewards(
         save_path: Path to save figure (optional)
         show: Whether to display the plot
         smooth_window: Window size for moving average smoothing
-        group_by_env: Whether to group plots by environment
 
     Returns:
-        Matplotlib figure
+        Matplotlib figure or None
     """
     # Auto-discover log directories if not specified
     if log_paths is None:
@@ -154,6 +158,9 @@ def plot_rewards(
 
     # Filter valid logs and group by environment
     env_groups: Dict[str, List] = {"paths": [], "infos": [], "data": []}
+    
+    # Track if we found any valid data
+    found_any_data = False
 
     for log_path in log_paths:
         data = extract_rewards(log_path)
@@ -173,7 +180,8 @@ def plot_rewards(
             'train/reward', 'test/reward', 
             'training/returns', 'test/returns',
             'train/rew', 'test/rew',
-            'collect/rew', 'eval/rew'
+            'collect/rew', 'eval/rew',
+            'return', 'returns', 'reward', 'rew'
         ]
         
         for tag in possible_keys:
@@ -181,7 +189,7 @@ def plot_rewards(
                 has_data = True
                 break
         
-        # Fallback check
+        # Fallback check: look for partial matches
         if not has_data:
              for key in available_tags:
                 key_lower = key.lower()
@@ -193,11 +201,14 @@ def plot_rewards(
             env_groups["paths"].append(log_path)
             env_groups["infos"].append(info)
             env_groups["data"].append(data)
+            found_any_data = True
         else:
-            print(f"Skipping {log_path}: No reward data found. Available tags: {available_tags}")
+            # Only print verbose warning if we haven't found any data yet, to avoid spam
+            # print(f"Skipping {log_path}: No reward data found.")
+            pass
 
     if not env_groups["paths"]:
-        print(f"No valid training logs found")
+        print(f"No valid training logs found with reward data.")
         return None
 
     # Group by environment
@@ -219,22 +230,34 @@ def plot_rewards(
         axes_by_env = {env_list[0]: axes}
     else:
         fig, axes = plt.subplots(num_envs, 2, figsize=(14, 5 * num_envs))
+        # Handle case where subplots returns 1D array (if 1 row) or 2D
         if num_envs == 1:
-            axes = axes.reshape(1, 2)
+             axes = np.array([axes])
+        
+        # Ensure axes is 2D array [rows, cols]
+        if len(axes.shape) == 1:
+             # This happens if we have multiple envs but only 1 col? No, we requested 2 cols.
+             # If num_envs > 1, axes is (num_envs, 2).
+             pass
+             
         env_list = sorted(by_env.keys())
-        axes_by_env = {env: (axes[i] if num_envs > 1 else axes) for i, env in enumerate(env_list)}
+        axes_by_env = {env: axes[i] for i, env in enumerate(env_list)}
 
     colors = plt.cm.tab10(np.linspace(0, 1, 10))
 
     # Plot each environment
     for env_idx, (env_name, env_data) in enumerate(by_env.items()):
-        if num_envs > 1:
-            ax1 = axes_by_env[env_name][0]
-            ax2 = axes_by_env[env_name][1]
+        current_axes = axes_by_env[env_name]
+        # Handle 1D array of axes (if only 1 env)
+        if hasattr(current_axes, 'shape') and len(current_axes.shape) == 1:
+            ax1, ax2 = current_axes
+        elif isinstance(current_axes, np.ndarray):
+             ax1, ax2 = current_axes
         else:
-            ax1, ax2 = axes_by_env[env_name]
+             ax1, ax2 = current_axes
 
-        plotted = 0
+        plotted_train = 0
+        plotted_test = 0
 
         # Plot training rewards
         for idx, (log_path, info, data) in enumerate(zip(env_data["paths"], env_data["infos"], env_data["data"])):
@@ -265,8 +288,8 @@ def plot_rewards(
                 steps = data[reward_key]["steps"]
 
                 # Apply smoothing (use smaller window if data is scarce)
-                actual_window = min(smooth_window, max(2, len(values) // 3))
-                if len(values) >= actual_window:
+                actual_window = min(smooth_window, max(1, len(values) // 3))
+                if len(values) >= actual_window and actual_window > 1:
                     values_smooth = np.convolve(values, np.ones(actual_window) / actual_window, mode="valid")
                     steps_smooth = steps[actual_window - 1:]
                 else:
@@ -275,17 +298,23 @@ def plot_rewards(
 
                 color_idx = idx % 10
                 label = f"{info['algorithm']}"
+                # Add timestamp to label if multiple runs of same algo
+                # Check if there are other runs with same algo
+                same_algo_count = sum(1 for i in env_data["infos"] if i['algorithm'] == info['algorithm'])
+                if same_algo_count > 1 and info['timestamp']:
+                     label += f" ({info['timestamp'][-4:]})"
+
                 ax1.plot(steps_smooth, values_smooth, label=label, color=colors[color_idx], alpha=0.8, linewidth=2)
-                plotted += 1
+                plotted_train += 1
 
         ax1.set_xlabel("Training Steps")
         ax1.set_ylabel("Reward (smoothed)")
-        ax1.set_title(f"Training Rewards - {env_name}" if num_envs > 1 else f"Training Rewards")
-        ax1.legend(loc="best")
+        ax1.set_title(f"Training Rewards - {env_name}")
+        if plotted_train > 0:
+            ax1.legend(loc="best")
         ax1.grid(True, alpha=0.3)
 
         # Plot test rewards
-        plotted = 0
         for idx, (log_path, info, data) in enumerate(zip(env_data["paths"], env_data["infos"], env_data["data"])):
             test_reward_key = None
             possible_keys = [
@@ -295,9 +324,18 @@ def plot_rewards(
             ]
 
             for key in possible_keys:
-                if key in data:
+                if key in data and len(data[key].get('values', [])) > 0:
                     test_reward_key = key
                     break
+            
+            # Also try to find keys starting with test/ or eval/
+            if test_reward_key is None:
+                 for key in data.keys():
+                    if (key.startswith('test/') or key.startswith('eval/')) and \
+                       ('rew' in key or 'return' in key):
+                        if len(data[key].get('values', [])) > 0:
+                            test_reward_key = key
+                            break
 
             if test_reward_key and data[test_reward_key]:
                 values = data[test_reward_key]["values"]
@@ -305,13 +343,19 @@ def plot_rewards(
 
                 color_idx = idx % 10
                 label = f"{info['algorithm']}"
+                # Add timestamp to label if multiple runs of same algo
+                same_algo_count = sum(1 for i in env_data["infos"] if i['algorithm'] == info['algorithm'])
+                if same_algo_count > 1 and info['timestamp']:
+                     label += f" ({info['timestamp'][-4:]})"
+                     
                 ax2.plot(steps, values, "o-", label=label, color=colors[color_idx], alpha=0.8, markersize=4, linewidth=2)
-                plotted += 1
+                plotted_test += 1
 
-        ax2.set_xlabel("Epoch")
+        ax2.set_xlabel("Epoch/Step")
         ax2.set_ylabel("Test Reward")
-        ax2.set_title(f"Test Rewards per Epoch - {env_name}" if num_envs > 1 else f"Test Rewards per Epoch")
-        ax2.legend(loc="best")
+        ax2.set_title(f"Test Rewards - {env_name}")
+        if plotted_test > 0:
+            ax2.legend(loc="best")
         ax2.grid(True, alpha=0.3)
 
     plt.suptitle(f"Training Results - {len(env_groups['paths'])} runs ({num_envs} environments)", fontsize=14)
@@ -337,7 +381,7 @@ def compare_runs(
     environment: Optional[str] = None,
     save_path: Optional[str] = None,
     show: bool = True,
-) -> plt.Figure:
+) -> Optional[plt.Figure]:
     """
     Compare specific algorithm runs.
 
@@ -349,25 +393,41 @@ def compare_runs(
         show: Whether to display the plot
         
     Returns:
-        Matplotlib figure
+        Matplotlib figure or None
     """
     all_logs = find_log_directories(log_dir)
 
     # Filter logs
     filtered_logs = []
+    
+    # Normalize inputs for comparison
+    algo_set = set(a.lower() for a in algorithms) if algorithms else None
+    target_env = environment.lower() if environment else None
+
     for log_path in all_logs:
         info = parse_log_name(log_path)
+        
+        log_algo = info["algorithm"].lower()
+        log_env = info["environment"].lower()
 
-        if algorithms and info["algorithm"] not in algorithms:
+        if algo_set and log_algo not in algo_set:
             continue
-        if environment and info["environment"] != environment:
-            continue
+        if target_env and target_env not in log_env: # loose match for env name
+             # Try exact match if loose match fails?
+             # Usually env name in log is "Walker2d-v4", target might be "Walker2d"
+             pass
+        elif target_env and log_env != target_env:
+            # If target_env is provided, check strict match or substring
+            if target_env not in log_env:
+                continue
 
         filtered_logs.append(log_path)
 
     if not filtered_logs:
-        print(f"No matching logs found")
+        print(f"No matching logs found for algos={algorithms}, env={environment}")
         return None
+        
+    print(f"Found {len(filtered_logs)} matching logs.")
 
     return plot_rewards(
         log_paths=filtered_logs,
@@ -387,6 +447,10 @@ def main():
     parser.add_argument("--no-show", action="store_true", help="Don't show plot window")
 
     args = parser.parse_args()
+    
+    # Set backend to Agg if no-show is requested to avoid GUI issues
+    if args.no_show:
+        matplotlib.use('Agg')
 
     if args.list:
         logs = find_log_directories(args.log_dir)
